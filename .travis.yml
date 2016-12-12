@@ -1,0 +1,23 @@
+dist: trusty
+language: node_js
+cache:
+  directories:
+  - node_modules
+  - elm-stuff/build-artifacts
+node_js:
+- '6'
+env:
+  matrix:
+  - CLOUDSDK_CORE_DISABLE_PROMPTS=1
+notifications:
+  slack:
+    secure: ZC1V1aD8tZ9FVDPJjfGpC8VhUAQ6bQAdw2YIyap/m+uMgT03FVyZx1hwGUSkJppsbaYwFHRaGxUZGvDeAXmwGJkVj8RNFBme2TNXPrxiMVD1gHGqedzbIvWG5bytbzETNnqHcdXQI7bv7DELaUGtTvr6CYZLFGAL55StP3m+X7WmZbgM1XF26fjrEkmM6V+Yh/X7aEXvkSt2KNxflTdlrp3aFCTT3M1DO8yRrnGZO2yQn283ngG4swyrT1PipKUBS9gLR24m8V+5snLIqejygrzfXtRB6Q4aJ9Bm9Jww88plmEETMiYywK09uxrz1xV4HPAFAe7pWFoBLsx0tgmpMEqxKmMrQduaUS9ZgaNiwRp3Bz+DcF6JgP1znjgo7ZUA4a1KKEcVcZECtUSRA8Hrpg4CZXbmv/NvCj36Pasizzi8p1LExMlQ1lIE63CU7887J2TaQCidXuwu4/vS8zKRukzWt91WE7S792NAUuYQ+cuSOHAG+X0Vv9GbME7saVtBjgaSxuZIz89CPtZvNk/pZuiRb+vLUsot2/c/GoWCMjFuvtn8fY15CqkyPWkrzWqzh1DuQL6PV9heNivYkWPFR7zgTCrmjYgNc3cJ745xpcPNTbnZFI2q6cRj/gbw2shA7/wnSeV91H1FH7TgC1RD/VSz7w3m8xKBYOQxZmgdy68=
+script:
+- npm install -g yarn
+- "./build"
+before_install:
+- openssl aes-256-cbc -K $encrypted_c0803d577e28_key -iv $encrypted_c0803d577e28_iv
+  -in client-secret.json.enc -out client-secret.json -d
+- ./setup_gcloud
+after_success:
+- ./deploy

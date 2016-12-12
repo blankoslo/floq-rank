@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if [ ! -d "${HOME}/google-cloud-sdk" ]; then
+  curl https://sdk.cloud.google.com | bash;
+fi
+
+export PATH=${HOME}/google-cloud-sdk/bin:$PATH
+
+gcloud auth activate-service-account --key-file client-secret.json
+gcloud components update
+gcloud config set project marine-cycle-97212
+gcloud config set compute/region europe-west1
+gcloud config set compute/zone europe-west1-b

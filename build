@@ -1,0 +1,10 @@
+#!/bin/sh
+yarn
+cp ./elm-package.json.in ./elm-package.json
+node ./node_modules/elm/binwrappers/elm-make --yes
+mkdir -p ./elm-stuff/ext-packages/gdotdesign/
+ln -s -f "${PWD}/node_modules/elm-ui" ./elm-stuff/ext-packages/gdotdesign/
+yarn add elm-ext-package
+node ./node_modules/elm-ext-package/elm-ext-package.js apply
+node ./node_modules/elm/binwrappers/elm-make --yes
+yarn build

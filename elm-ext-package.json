@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "gdotdesign/elm-ui": "0.4.3 <= v < 1.0.0"
+  }
+}

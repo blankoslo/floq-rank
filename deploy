@@ -1,0 +1,19 @@
+#!/bin/bash
+
+unset ENV;
+
+if [ "$TRAVIS_PULL_REQUEST" == false ]; then
+  if [ "$TRAVIS_BRANCH" == "develop" ]; then
+    ENV=test;
+  elif [ "$TRAVIS_BRANCH" == "master" ]; then
+    ENV=prod;
+  fi
+fi
+
+if ! [ -z "$ENV" ]; then
+  [[ "$ENV" == "test" ]] && POSTFIX="-test" || POSTFIX=""
+  export GOOGLE_APPLICATION_CREDENTIALS="${PWD}/client-secret.json";
+  "${HOME}/google-cloud-sdk/bin/gsutil" \
+    -h "Cache-Control:public, max-age=0" \
+    cp -a public-read -r dist/* "gs://floq${POSTFIX}/rank"
+fi
