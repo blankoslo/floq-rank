@@ -4,6 +4,7 @@ import Date exposing (Date)
 import Date.Format as Date
 import Dict exposing (Dict)
 import Html exposing (div, span, strong, text)
+import Html.Attributes as A
 import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -17,6 +18,8 @@ import Ui.Button
 import Ui.Checkbox
 import Ui.Chooser
 import Ui.Container
+import Ui.Button
+import Ui.Modal
 import Uuid exposing (Uuid)
 
 
@@ -42,7 +45,8 @@ type Result
 
 
 type alias Matchup =
-    { gameId : Uuid
+    { id : Maybe Uuid
+    , gameId : Uuid
     , user1Id : String
     , user2Id : String
     , result : Result
@@ -64,6 +68,8 @@ type alias Model =
     , user1Checkbox : Ui.Checkbox.Model
     , tieCheckbox : Ui.Checkbox.Model
     , user2Checkbox : Ui.Checkbox.Model
+    , deleteModal : Ui.Modal.Model
+    , deleteCandidate : Maybe Matchup
     , users : Dict String User
     , games : Dict String Game
     , matchups : List Matchup
@@ -82,8 +88,11 @@ type Msg
     | User1Checkbox Ui.Checkbox.Msg
     | TieCheckbox Ui.Checkbox.Msg
     | User2Checkbox Ui.Checkbox.Msg
+    | DeleteModal Ui.Modal.Msg
     | SubmitMatchup (Date -> Matchup)
     | AddMatchup Matchup
+    | RequestRemoveMatchup Matchup
+    | RemoveMatchup Matchup
 
 
 mkUser : List Game -> String -> String -> ( String, User )
@@ -220,8 +229,8 @@ fetchGames apiToken apiHost =
 matchupDecoder : Decode.Decoder (Maybe Matchup)
 matchupDecoder =
     let
-        matchupOrNothing a b c d e =
-            Maybe.map2 (\ma me -> Matchup ma b c d me) a e
+        matchupOrNothing id a b c d e =
+            Maybe.map2 (\ma me -> Matchup id ma b c d me) a e
 
         toResult x =
             case x of
@@ -234,7 +243,8 @@ matchupDecoder =
                 _ ->
                     Tie
     in
-        Decode.map5 matchupOrNothing
+        Decode.map6 matchupOrNothing
+            (Decode.map Uuid.fromString (Decode.field "id" Decode.string))
             (Decode.map Uuid.fromString (Decode.field "game_id" Decode.string))
             (Decode.field "user1_id" Decode.int |> Decode.map toString)
             (Decode.field "user2_id" Decode.int |> Decode.map toString)
@@ -314,6 +324,30 @@ postMatchup apiToken apiHost matchup =
             }
 
 
+deleteMatchup : String -> String -> Matchup -> Http.Request (List Matchup)
+deleteMatchup apiToken apiHost matchup =
+    let
+        authHeader =
+            Http.header "Authorization" ("Bearer " ++ apiToken)
+
+        preferHeader =
+            Http.header "Prefer" "return=representation"
+
+        matchupId =
+            Maybe.map Uuid.toString matchup.id
+                |> Maybe.withDefault ""
+    in
+        Http.request
+            { method = "DELETE"
+            , headers = [ authHeader, preferHeader ]
+            , url = (apiHost ++ "/ranked_matchups?id=eq." ++ matchupId)
+            , body = Http.emptyBody
+            , expect = Http.expectJson matchupsDecoder
+            , timeout = Nothing
+            , withCredentials = False
+            }
+
+
 type alias Flags =
     { apiToken : String
     , apiHost : String
@@ -337,6 +371,8 @@ init flags =
             |> \x -> { x | readonly = True }
     , tieCheckbox = Ui.Checkbox.init False
     , user2Checkbox = Ui.Checkbox.init False
+    , deleteModal = Ui.Modal.init
+    , deleteCandidate = Nothing
     , users = Dict.empty
     , games = Dict.empty
     , matchups = []
@@ -464,10 +500,8 @@ update msg model =
                     { model
                         | users = users
                         , games = games
-                        , gameChooser =
-                            Ui.Chooser.updateData (List.map gameToItem <| Dict.values games) model.gameChooser
-                                |> Ui.Chooser.selectFirst
-                                |> Tuple.first
+                        , matchups = []
+                        , gameChooser = Ui.Chooser.updateData (List.map gameToItem <| Dict.values games) model.gameChooser
                         , user1Chooser = Ui.Chooser.updateData (List.map userToItem <| Dict.values users) model.user1Chooser
                         , user2Chooser = Ui.Chooser.updateData (List.map userToItem <| Dict.values users) model.user2Chooser
                     }
@@ -589,6 +623,9 @@ update msg model =
                 , Cmd.none
                 )
 
+        DeleteModal msg ->
+            ( { model | deleteModal = Ui.Modal.update msg model.deleteModal }, Cmd.none )
+
         SubmitMatchup f ->
             let
                 postMatchupCmd =
@@ -600,6 +637,26 @@ update msg model =
 
         AddMatchup matchup ->
             ( addMatchup matchup model, Cmd.none )
+
+        RequestRemoveMatchup matchup ->
+            { model
+                | deleteModal = Ui.Modal.open model.deleteModal
+                , deleteCandidate = Just matchup
+            }
+                ! []
+
+        RemoveMatchup matchup ->
+            let
+                deleteMatchupCmd =
+                    Http.toTask (deleteMatchup model.apiToken model.apiHost matchup)
+                        |> Task.andThen (\_ -> fetchAll model.apiToken model.apiHost)
+                        |> Task.attempt Init
+            in
+                { model
+                    | deleteModal = Ui.Modal.close model.deleteModal
+                    , deleteCandidate = Nothing
+                }
+                    ! [ deleteMatchupCmd ]
 
 
 rankingsRowView : ( Int, String, Profile ) -> Html.Html Msg
@@ -684,8 +741,8 @@ rankingsView model =
             [ Html.table [] rows ]
 
 
-matchupRowView : ( String, String, Result, Date ) -> Html.Html Msg
-matchupRowView ( name1, name2, result, createdAt ) =
+matchupRowView : ( Matchup, String, String, Result, Date ) -> Html.Html Msg
+matchupRowView ( matchup, name1, name2, result, createdAt ) =
     let
         name1Elem =
             case result of
@@ -711,6 +768,9 @@ matchupRowView ( name1, name2, result, createdAt ) =
             [ Html.td [] [ name1Elem ]
             , Html.td [] [ name2Elem ]
             , Html.td [] [ createdAtStr ]
+            , Html.td
+                [ A.style [ ( "text-align", "right" ) ] ]
+                [ Ui.Button.dangerSmall "Delete" (RequestRemoveMatchup matchup) ]
             ]
 
 
@@ -753,12 +813,13 @@ matchupsView model =
                     [ Html.th [] [ text "P1" ]
                     , Html.th [] [ text "P2" ]
                     , Html.th [] [ text "Date" ]
+                    , Html.th [] [ text "" ]
                     ]
                 ]
 
         rows =
             if (List.length results > 0) then
-                (header :: List.map matchupRowView (List.zip4 names1 names2 results createdAts))
+                (header :: List.map matchupRowView (List.zip5 matchups names1 names2 results createdAts))
             else
                 []
     in
@@ -804,7 +865,7 @@ view model =
             getResult ( .value model.user1Checkbox, .value model.tieCheckbox, .value model.user2Checkbox )
 
         matchup =
-            Maybe.map3 (\a b c -> SubmitMatchup (\date -> Matchup a b c result date)) gameId user1Id user2Id
+            Maybe.map3 (\a b c -> SubmitMatchup (\date -> Matchup Nothing a b c result date)) gameId user1Id user2Id
 
         verb =
             case result of
@@ -855,6 +916,18 @@ view model =
                             , Just <| Ui.Container.columnCenter [] [ text <| Maybe.withDefault "" matchupStr ]
                             ]
                         )
+                    , case model.deleteCandidate of
+                        Just x ->
+                            Ui.Modal.view DeleteModal
+                                { content = [ Html.text "PLZ" ]
+                                , footer =
+                                    [ Ui.Button.danger "I AM SURE" (RemoveMatchup x) ]
+                                , title = "Are you sure?"
+                                }
+                                model.deleteModal
+
+                        Nothing ->
+                            Html.text ""
                     ]
                 , Ui.Container.column [] [ rankingsView model ]
                 , Ui.Container.column [] [ matchupsView model ]
