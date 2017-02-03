@@ -15,8 +15,22 @@ ui-app > ui-container {
 
 table {
   width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
 
   th {
     text-align: left;
+  }
+
+  tr:nth-child(even) {
+    background-color: #eee;
+  }
+
+  tr:nth-child(odd) {
+    background-color: inherit;
+  }
+
+  td {
+    vertical-align: middle;
   }
 }
