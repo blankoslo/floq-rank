@@ -150,24 +150,6 @@ generateUuids seed n uuids =
         generateUuids newSeed (n - 1) (newUuid :: uuids)
 
 
-
--- defaultGames : Dict String Game
--- defaultGames = Dict.fromList <| List.filterMap identity
---                  [ Maybe.map (mkGame "FIFA 2016")
---                      (Uuid.fromString "133d20d1-11c9-4693-b4af-7496ddb30e0e")
---                  , Maybe.map (mkGame "Sjakk")
---                      (Uuid.fromString "233d20d1-11c9-4693-b4af-7496ddb30e0e")
---                  ]
--- defaultUsers : Dict String User
--- defaultUsers = Dict.fromList
---                  [ mkUser "Arne" "50a34028-528b-4a70-8231-54103d940ee3"
---                  , mkUser "Bob" "2db45eb9-d55d-4f03-b1a9-a25699abe169"
---                  , mkUser "Cato" "f5b46616-3a0b-4520-9cf5-a6389fbfdb0b"
---                  , mkUser "David" "6f39c213-e19e-4d2a-884d-9a68f959b6f2"
---                  , mkUser "Espen" "41d42d9f-c47c-448c-a7ac-846bc6b00cd6"
---                  ]
-
-
 type alias FloqEmployee =
     { id : Int
     , firstName : String
